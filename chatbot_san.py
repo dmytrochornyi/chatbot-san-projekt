@@ -12,23 +12,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ZAAWANSOWANY CSS (STYL GEMINI PREMIUM) ---
+# --- 2. ZAAWANSOWANY CSS (GEMINI STYLE) ---
 st.markdown("""
     <style>
-    /* Usunięcie elementów systemowych */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Tło i czcionki */
-    .main {
-        background-color: #f0f4f9;
-    }
-    @media (prefers-color-scheme: dark) {
-        .main { background-color: #131314; }
-    }
+    .main { background-color: #f0f4f9; }
+    @media (prefers-color-scheme: dark) { .main { background-color: #131314; } }
 
-    /* Gradientowy napis Gemini */
     .gemini-gradient {
         font-size: 3.5rem;
         font-weight: 500;
@@ -45,19 +38,11 @@ st.markdown("""
         margin-bottom: 40px;
     }
 
-    /* Stylizacja lewego panelu (Historia) */
-    [data-testid="stSidebar"] {
-        background-color: #f0f4f9;
-        border-right: 1px solid #e3e3e3;
-    }
+    [data-testid="stSidebar"] { background-color: #f0f4f9; border-right: 1px solid #e3e3e3; }
     @media (prefers-color-scheme: dark) {
-        [data-testid="stSidebar"] {
-            background-color: #1e1e20;
-            border-right: 1px solid #333;
-        }
+        [data-testid="stSidebar"] { background-color: #1e1e20; border-right: 1px solid #333; }
     }
 
-    /* Kafelki sugestii (Cards) */
     .stButton>button {
         width: 100%;
         border-radius: 16px;
@@ -71,19 +56,12 @@ st.markdown("""
     @media (prefers-color-scheme: dark) {
         .stButton>button { background-color: #1e1e20; color: white; box-shadow: none; border: 1px solid #333; }
     }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        background-color: #f8f9fa;
-    }
-
-    /* Wyśrodkowanie promptu na dole */
-    .stChatInputContainer {
-        padding-bottom: 20px;
-    }
+    .stButton>button:hover { transform: translateY(-2px); background-color: #f8f9fa; }
+    .stChatInputContainer { padding-bottom: 20px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. LOGIKA BAZY WIEDZY ---
+# --- 3. BAZA WIEDZY I INTELIGENTNE WYSZUKIWANIE ---
 @st.cache_data
 def load_knowledge():
     if os.path.exists("knowledge.json"):
@@ -95,15 +73,38 @@ knowledge_base = load_knowledge()
 
 def search_knowledge(query):
     query = query.lower()
-    time.sleep(1.0) # Realistyczne opóźnienie AI
-    for key, value in knowledge_base.items():
-        if key.replace("_", " ") in query or query in key:
-            return value, key
-    return "Przepraszam, nie znalazłem informacji na ten temat w dokumentacji SAN. Spróbuj zapytać o konkretny kierunek, punkty ECTS lub regulamin.", None
+    time.sleep(1.2) # Realistyczne "myślenie" bota
+    
+    # Słownik synonimów i powiązań (aby bot był mądrzejszy)
+    synonyms = {
+        "medycyn": "kierunek_lekarski",
+        "warun": "niezaliczenie_semestru",
+        "poprawk": "sesja_poprawkowa",
+        "obron": "praca_dyplomowa",
+        "ects": "ects"
+    }
+    
+    # KROK 1: Szukanie po synonimach
+    for syn, real_key in synonyms.items():
+        if syn in query:
+            # Szuka realnego klucza w JSON, ale radzi sobie też, gdy JSON ma klucz np. "ects_ogolne"
+            for json_key, json_val in knowledge_base.items():
+                if real_key in json_key:
+                    return json_val, json_key
 
-# --- 4. ZARZĄDZANIE HISTORIĄ (LEWY PANEL) ---
+    # KROK 2: Szukanie po rdzeniach słów (omija problem odmiany polskiej)
+    for key, value in knowledge_base.items():
+        words = key.split("_")
+        for word in words:
+            core = word[:5] if len(word) > 5 else word # Ucina polskie końcówki (np. fizjoterapi-i)
+            if core in query and core not in ["ogolne", "przed"]:
+                return value, key
+                
+    return "Przepraszam, nie znalazłem w dokumentach odpowiedzi na to pytanie. Spróbuj zapytać konkretnie o ECTS, logistykę, fizjoterapię lub regulamin uczelni.", None
+
+# --- 4. LEWY PANEL (HISTORIA) ---
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [] # Lista tytułów rozmów
+    st.session_state.chat_history = []
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -111,7 +112,6 @@ with st.sidebar:
     st.write("") 
     if st.button("➕ Nowy czat", use_container_width=True, type="primary"):
         if len(st.session_state.messages) > 0:
-            # Zapisz obecny czat do historii przed czyszczeniem
             title = st.session_state.messages[0]["content"][:30] + "..."
             st.session_state.chat_history.insert(0, {"title": title, "date": datetime.now().strftime("%H:%M")})
         st.session_state.messages = []
@@ -122,15 +122,13 @@ with st.sidebar:
     for chat in st.session_state.chat_history:
         st.button(f"💬 {chat['title']}", key=f"hist_{chat['title']}", use_container_width=True)
 
-# --- 5. GŁÓWNY INTERFEJS (PRAWY PANEL) ---
+# --- 5. GŁÓWNY INTERFEJS ---
 if len(st.session_state.messages) == 0:
-    # EKRAN POWITALNY (Gdy czat jest pusty)
     st.write("")
     st.write("")
     st.markdown('<div class="gemini-gradient">Witaj, studencie SAN</div>', unsafe_allow_html=True)
     st.markdown('<div class="gemini-subtitle">W czym mogę Ci dzisiaj pomóc?</div>', unsafe_allow_html=True)
 
-    # KAFELKI SUGESTII
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         if st.button("📚\n\nSprawdź wymogi ECTS"): st.session_state.temp_prompt = "Ile punktów ECTS muszę zdobyć na semestr?"
@@ -142,25 +140,20 @@ if len(st.session_state.messages) == 0:
         if st.button("🎓\n\nObrona magisterska"): st.session_state.temp_prompt = "Jak wygląda proces obrony pracy dyplomowej?"
 
 else:
-    # WYŚWIETLANIE ROZMOWY
     for message in st.session_state.messages:
         avatar = "✨" if message["role"] == "assistant" else "👤"
         with st.chat_message(message["role"], avatar=avatar):
             st.markdown(message["content"])
 
-# --- 6. OBSŁUGA WEJŚCIA (CHAT INPUT) ---
+# --- 6. OBSŁUGA CZATU ---
 prompt = st.chat_input("Wpisz pytanie...")
 
-# Obsługa kliknięcia w kafelki
 if "temp_prompt" in st.session_state:
     prompt = st.session_state.temp_prompt
     del st.session_state.temp_prompt
 
 if prompt:
-    # Dodaj pytanie użytkownika
     st.session_state.messages.append({"role": "user", "content": prompt})
-    
-    # Odśwież, aby pokazać czat zamiast ekranu powitalnego
     if len(st.session_state.messages) == 1:
         st.rerun()
 
@@ -171,10 +164,8 @@ if prompt:
         placeholder = st.empty()
         full_res = ""
         
-        # Logika wyszukiwania
         answer, source = search_knowledge(prompt)
         
-        # Animacja pisania
         for char in answer:
             full_res += char
             placeholder.markdown(full_res + "▌")
