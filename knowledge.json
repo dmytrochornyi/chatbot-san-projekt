@@ -1,7 +1,23 @@
 {
-  "regulamin": "Student ma prawo do dwóch terminów egzaminu z każdego przedmiotu. Sesja poprawkowa odbywa się w we wrześniu.",
-  "sylabus_informatyka": "Przedmiot Programowanie w Pythonie obejmuje 30 godzin wykładów i 30 godzin laboratoriów. Za zaliczenie przysługuje 5 punktów ECTS.",
-  "plan_zajec": "Zajęcia na kierunku Informatyka odbywają się głównie w bloku sobotnio-niedzielnym w godzinach 08:00 - 20:00.",
-  "ects": "Minimalna liczba punktów ECTS wymagana do zaliczenia semestru wynosi 30.",
-  "stypendia": "Wnioski o stypendium rektora należy składać do 15 października w dziekanacie."
+  "kierunek_lekarski": "Studia na kierunku lekarskim trwają 12 semestrów (6 lat). Program obejmuje m.in. anatomię, biochemię, biofizykę oraz liczne praktyki kliniczne. Łączna liczba punktów ECTS to 360.",
+  "lekarski_anatomia": "Na kierunku lekarskim Anatomia to jeden z głównych przedmiotów na pierwszym roku. Zaliczenie obejmuje egzamin teoretyczny (często testowy) oraz sprawdziany praktyczne (tzw. szpilki).",
+  "lekarski_praktyki": "Praktyki zawodowe na kierunku lekarskim odbywają się po każdym roku studiów w wymiarze 4 tygodni (120 godzin). Obejmują m.in. opiekę nad chorym, medycynę rodzinną, chorób wewnętrznych i chirurgię.",
+  "logistyka": "Logistyka (I stopień) trwa 6 semestrów dla licencjatu lub 7 semestrów dla studiów inżynierskich. Program obejmuje infrastrukturę logistyczną, zarządzanie zapasami, transport i spedycję.",
+  "logistyka_przedmioty": "Kluczowe przedmioty na logistyce to: Podstawy zarządzania, Ekonomia, Systemy informatyczne w logistyce, Zarządzanie łańcuchem dostaw oraz Prawo transportowe.",
+  "fizjoterapia": "Fizjoterapia to jednolite studia magisterskie trwające 5 lat (10 semestrów). Absolwent uzyskuje pełne prawo do wykonywania zawodu po zdaniu Państwowego Egzaminu Fizjoterapeutycznego (PEF).",
+  "fizjoterapia_praktyki": "Student fizjoterapii musi odbyć łącznie aż 960 godzin praktyk zawodowych w placówkach ochrony zdrowia, w tym w poradniach rehabilitacyjnych i szpitalach.",
+  "fizjoterapia_kinezyterapia": "Kinezyterapia (leczenie ruchem) to fundament fizjoterapii. Studenci uczą się doboru ćwiczeń dla pacjentów z różnymi schorzeniami ortopedycznymi i neurologicznymi.",
+  "optometria": "Studia II stopnia z Optometrii trwają 2 lata (4 semestry). Skupiają się na zaawansowanym badaniu układu wzrokowego, kontaktologii i rehabilitacji słabowidzących. Wymagane 120 ECTS.",
+  "optometria_kontaktologia": "Przedmiot Kontaktologia obejmuje zarówno wykłady, jak i ćwiczenia kliniczne z zakresu dobierania twardych i miękkich soczewek kontaktowych oraz powikłań z nimi związanych.",
+  "finanse_rynki": "Przedmiot Rynki Finansowe (FiR I st.) obejmuje analizę giełdy papierów wartościowych, instrumentów dłużnych, polityki pieniężnej oraz roli banku centralnego.",
+  "zarzadzanie_finansami": "Przedmiot Zaawansowane Zarządzanie Finansami Przedsiębiorstwa skupia się na strategii finansowej, ocenie projektów inwestycyjnych, kosztach kapitału oraz fuzjach i przejęciach.",
+  "sylabus_zaliczenie": "Zaliczenie przedmiotu zależy od wymagań w sylabusie. Najczęściej obejmuje obecność na ćwiczeniach, przygotowanie projektu/prezentacji oraz zdanie egzaminu końcowego w formie pisemnej lub ustnej.",
+  "ects": "Punkty ECTS (Europejski System Transferu Punktów) odzwierciedlają nakład pracy studenta. 1 punkt ECTS to około 25-30 godzin pracy (w tym zajęcia na uczelni i nauka własna). Semestr to zawsze 30 ECTS.",
+  "niezaliczenie_semestru": "W przypadku niezaliczenia przedmiotu, student ma prawo do poprawki. Jeśli poprawka się nie uda, może wnioskować do Dziekana o wpis warunkowy na kolejny semestr (tzw. warunek) lub powtarzanie przedmiotu.",
+  "skala_ocen": "Na uczelni obowiązuje następująca skala ocen: 2.0 (niedostateczny), 3.0 (dostateczny), 3.5 (dość dobry), 4.0 (dobry), 4.5 (ponad dobry), 5.0 (bardzo dobry).",
+  "sesja_poprawkowa": "Sesja poprawkowa po semestrze zimowym odbywa się zazwyczaj na przełomie lutego i marca, natomiast po semestrze letnim – we wrześniu.",
+  "praca_dyplomowa": "Praca dyplomowa (licencjacka, inżynierska lub magisterska) musi zostać sprawdzona przez system antyplagiatowy (JSA). Student broni jej podczas egzaminu dyplomowego przed komisją.",
+  "stypendium_naukowe": "Stypendium rektora dla najlepszych studentów przyznawane jest na podstawie wysokiej średniej ocen za poprzedni rok akademicki lub za wybitne osiągnięcia naukowe, sportowe czy artystyczne.",
+  "dziekanat": "Dziekanat to główne miejsce obsługi administracyjnej studentów. Wnioski o stypendia, przedłużenie sesji, czy wydanie zaświadczeń należy składać właśnie tam (często przez system e-Dziekanat/USOS).",
+  "nieobecnosci": "Regulamin dopuszcza pewną pulę nieusprawiedliwionych nieobecności na ćwiczeniach i laboratoriach (najczęściej 1 lub 2). Przekroczenie limitu może skutkować niezaliczeniem przedmiotu."
 }
