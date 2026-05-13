@@ -1,0 +1,4 @@
+streamlit
+# Tu dopisz inne biblioteki, jeśli będziesz ich używać, np.:
+# langchain
+# chromadb
