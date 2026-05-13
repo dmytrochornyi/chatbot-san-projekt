@@ -3,134 +3,134 @@ import time
 import json
 import os
 
-# --- 1. TWARDA KONFIGURACJA STRONY ---
-# Ustawienie "expanded" wymusza otwarcie panelu bocznego na komputerach.
+# --- 1. KONFIGURACJA STRONY ---
 st.set_page_config(
     page_title="SAN AI",
     page_icon="✨",
     layout="wide",
-    initial_sidebar_state="expanded" 
+    initial_sidebar_state="expanded" # Panel boczny domyślnie otwarty
 )
 
-# --- 2. CSS - STYLIZACJA NA GEMINI ---
+# --- 2. CSS - WYGLĄD GEMINI I ZABLOKOWANIE PANELU ---
 st.markdown("""
     <style>
-    /* Ukrycie menu i stopki Streamlit */
+    /* Ukrycie przycisku zamykania panelu bocznego (blokada) */
+    [data-testid="sidebar-close-button"] { display: none; }
+    button[kind="header"] { display: none; }
+    
+    /* Ukrycie menu i stopki */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Wygląd głównego tła i czcionki */
+    /* Styl tła */
     .main { background-color: #f0f4f9; }
     @media (prefers-color-scheme: dark) { .main { background-color: #131314; } }
 
-    /* Gradientowy napis tytułowy - styl Gemini */
+    /* Gradientowy napis Gemini */
     .gemini-title {
         font-size: 3.5rem;
         font-weight: 500;
         background: linear-gradient(74deg, #4285f4 0, #9b72cb 20%, #d96570 40%, #f39264 60%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 10px;
+        margin-bottom: 0px;
     }
     .gemini-subtitle {
-        font-size: 1.5rem;
-        color: #666;
-        margin-bottom: 30px;
-    }
-    
-    /* Zablokowanie szerokości panelu bocznego */
-    [data-testid="stSidebar"] {
-        min-width: 300px;
-        max-width: 300px;
+        font-size: 1.6rem;
+        color: #757575;
+        margin-top: -10px;
+        margin-bottom: 40px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. BAZA WIEDZY (WCZYTYWANIE) ---
+# --- 3. WCZYTYWANIE BAZY WIEDZY ---
 @st.cache_data
-def load_knowledge():
-    # Pobiera dane z Twojego pliku knowledge.json
+def load_data():
     if os.path.exists("knowledge.json"):
         with open("knowledge.json", "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
-knowledge_base = load_knowledge()
+knowledge_base = load_data()
 
-# --- 4. ZARZĄDZANIE STANEM (PAMIĘĆ) ---
+# --- 4. INICJALIZACJA PAMIĘCI (SESSION STATE) ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 5. PANEL BOCZNY (LEWA STRONA) ---
+# --- 5. PANEL BOCZNY (HISTORIA - LEWA STRONA) ---
 with st.sidebar:
-    st.markdown("### ✨ Historia Rozmów")
+    st.markdown("### ✨ SAN AI")
+    st.caption("Asystent Akademicki")
     
-    # Przycisk do czyszczenia (jedyny moment, gdy strona się przeładowuje)
-    if st.button("➕ Nowy czat", use_container_width=True):
+    if st.button("➕ Nowa rozmowa", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-        
-    st.divider()
     
-    # Wyświetlanie ostatnich pytań w panelu bocznym
-    st.caption("Twoje pytania:")
+    st.divider()
+    st.write("**Ostatnie pytania:**")
+    
+    # Wyświetlanie historii pytań użytkownika w panelu bocznym
     for msg in st.session_state.messages:
         if msg["role"] == "user":
-            st.write(f"💬 {msg['content'][:25]}...") # Wyświetla pierwsze 25 znaków pytania
+            # Wyświetla krótką wersję pytania
+            st.markdown(f"💬 `{msg['content'][:25]}...`")
 
-# --- 6. GŁÓWNY INTERFEJS (PRAWA STRONA) ---
-# Jeśli nie ma wiadomości - pokaż ekran startowy (ale bez kafelków podpowiedzi)
-if len(st.session_state.messages) == 0:
+# --- 6. GŁÓWNY INTERFEJS (CZAT) ---
+
+# A. Jeśli czat jest pusty -> Pokaż ekran powitalny
+if not st.session_state.messages:
+    st.write("")
+    st.write("")
     st.markdown('<div class="gemini-title">Witaj, studencie</div>', unsafe_allow_html=True)
-    st.markdown('<div class="gemini-subtitle">Jestem asystentem uczelnianym. O co chcesz zapytać?</div>', unsafe_allow_html=True)
-else:
-    # Jeśli są wiadomości - wyświetl historię na środku ekranu
-    for msg in st.session_state.messages:
-        avatar = "✨" if msg["role"] == "assistant" else "👤"
-        with st.chat_message(msg["role"], avatar=avatar):
-            st.markdown(msg["content"])
+    st.markdown('<div class="gemini-subtitle">W czym mogę Ci dzisiaj pomóc?</div>', unsafe_allow_html=True)
 
-# --- 7. LOGIKA CZATU I WYSZUKIWANIA ---
-if prompt := st.chat_input("Wpisz swoje zapytanie tutaj..."):
+# B. Wyświetlanie wiadomości (zawsze na początku, aby historia była widoczna)
+for message in st.session_state.messages:
+    avatar = "✨" if message["role"] == "assistant" else "👤"
+    with st.chat_message(message["role"], avatar=avatar):
+        st.markdown(message["content"])
+
+# C. Obsługa nowego pytania (Input na dole)
+if prompt := st.chat_input("Wpisz pytanie do bazy SAN..."):
     
-    # 1. Zapisz i wyświetl pytanie użytkownika
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    # 1. Wyświetlamy pytanie użytkownika natychmiast
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
-
-    # 2. Przygotuj odpowiedź bota
+    
+    # 2. Zapisujemy do pamięci
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # 3. Szukamy odpowiedzi w bazie
     with st.chat_message("assistant", avatar="✨"):
-        response = "Przepraszam, nie odnalazłem tej informacji w bazie. Spróbuj użyć kluczowych słów, takich jak: ECTS, regulamin, logistyka, fizjoterapia czy medycyna."
-        source_found = ""
-        prompt_lower = prompt.lower()
+        response = "Przepraszam, nie znalazłem informacji na ten temat. Spróbuj zapytać o ECTS, regulamin, logistykę lub fizjoterapię."
+        found_source = None
         
-        # Pancerne wyszukiwanie (Jeśli słowo z klucza w JSON jest w pytaniu, odpowiada)
+        # Proste wyszukiwanie słów kluczowych
+        p_lower = prompt.lower()
         for key, value in knowledge_base.items():
-            # Rozbija klucz np. "kierunek_lekarski" na "kierunek" i "lekarski"
-            keywords = key.replace("_", " ").split()
-            for word in keywords:
-                # Szuka słów dłuższych niż 3 znaki, żeby uniknąć pomyłek
-                if len(word) > 3 and word[:4] in prompt_lower:
-                    response = value
-                    source_found = key
-                    break
-            if source_found:
+            clean_key = key.replace("_", " ")
+            if clean_key in p_lower or p_lower in clean_key:
+                response = value
+                found_source = key
                 break
         
-        # 3. Wyświetlenie animacji pisania
-        message_placeholder = st.empty()
-        full_response = ""
+        # Animacja pisania
+        placeholder = st.empty()
+        full_res = ""
         for char in response:
-            full_response += char
-            message_placeholder.markdown(full_response + "▌")
-            time.sleep(0.005) # Szybkość animacji
-            
-        # Dodanie przypisu ze źródłem, jeśli coś znalazł
-        if source_found:
-            full_response += f"\n\n<span style='color:gray; font-size: 0.8em;'>Źródło: {source_found.upper()}</span>"
-            
-        message_placeholder.markdown(full_response, unsafe_allow_html=True)
+            full_res += char
+            placeholder.markdown(full_res + "▌")
+            time.sleep(0.005)
         
-    # 4. Zapisz odpowiedź do historii
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+        if found_source:
+            full_res += f"\n\n*Źródło: {found_source.upper()}*"
+            
+        placeholder.markdown(full_res)
+        
+        # 4. Zapisujemy odpowiedź bota do pamięci
+        st.session_state.messages.append({"role": "assistant", "content": full_res})
+    
+    # Wymuszamy odświeżenie panelu bocznego, by dodać tam nowe pytanie
+    st.rerun()
