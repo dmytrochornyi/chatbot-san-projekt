@@ -9,170 +9,122 @@ st.set_page_config(
     page_title="SAN AI",
     page_icon="✨",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded" # PANEL BĘDZIE ZAWSZE WIDOCZNY
 )
 
-# --- 2. ZAAWANSOWANY CSS (GEMINI STYLE) ---
+# --- 2. CSS DLA WYGLĄDU I STABILNOŚCI ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    .main { background-color: #f0f4f9; }
-    @media (prefers-color-scheme: dark) { .main { background-color: #131314; } }
-
+    /* Gradientowy napis */
     .gemini-gradient {
-        font-size: 3.5rem;
-        font-weight: 500;
+        font-size: 3rem;
+        font-weight: 600;
         background: linear-gradient(74deg, #4285f4 0, #9b72cb 20%, #d96570 40%, #f39264 60%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0px;
     }
-    .gemini-subtitle {
-        font-size: 3.5rem;
-        font-weight: 500;
-        color: #c4c7c5;
-        margin-top: -15px;
-        margin-bottom: 40px;
-    }
-
-    [data-testid="stSidebar"] { background-color: #f0f4f9; border-right: 1px solid #e3e3e3; }
-    @media (prefers-color-scheme: dark) {
-        [data-testid="stSidebar"] { background-color: #1e1e20; border-right: 1px solid #333; }
-    }
-
-    .stButton>button {
-        width: 100%;
-        border-radius: 16px;
-        border: none;
-        background-color: #ffffff;
-        padding: 20px;
+    
+    /* Stylizacja przycisków w panelu bocznym */
+    section[data-testid="stSidebar"] .stButton button {
+        background-color: transparent;
+        border: 1px solid #e3e3e3;
         text-align: left;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        transition: transform 0.2s;
     }
-    @media (prefers-color-scheme: dark) {
-        .stButton>button { background-color: #1e1e20; color: white; box-shadow: none; border: 1px solid #333; }
-    }
-    .stButton>button:hover { transform: translateY(-2px); background-color: #f8f9fa; }
-    .stChatInputContainer { padding-bottom: 20px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. BAZA WIEDZY I INTELIGENTNE WYSZUKIWANIE ---
+# --- 3. LOGIKA BAZY WIEDZY ---
 @st.cache_data
 def load_knowledge():
     if os.path.exists("knowledge.json"):
-        with open("knowledge.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"błąd": "Baza wiedzy nie została załadowana."}
+        try:
+            with open("knowledge.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return {"błąd": "Błąd odczytu pliku JSON."}
+    return {}
 
 knowledge_base = load_knowledge()
 
-def search_knowledge(query):
+def robust_search(query):
     query = query.lower()
-    time.sleep(1.2) # Realistyczne "myślenie" bota
-    
-    # Słownik synonimów i powiązań (aby bot był mądrzejszy)
-    synonyms = {
-        "medycyn": "kierunek_lekarski",
-        "warun": "niezaliczenie_semestru",
-        "poprawk": "sesja_poprawkowa",
-        "obron": "praca_dyplomowa",
-        "ects": "ects"
-    }
-    
-    # KROK 1: Szukanie po synonimach
-    for syn, real_key in synonyms.items():
-        if syn in query:
-            # Szuka realnego klucza w JSON, ale radzi sobie też, gdy JSON ma klucz np. "ects_ogolne"
-            for json_key, json_val in knowledge_base.items():
-                if real_key in json_key:
-                    return json_val, json_key
-
-    # KROK 2: Szukanie po rdzeniach słów (omija problem odmiany polskiej)
+    # Szukanie dopasowania w kluczach bazy danych
     for key, value in knowledge_base.items():
-        words = key.split("_")
-        for word in words:
-            core = word[:5] if len(word) > 5 else word # Ucina polskie końcówki (np. fizjoterapi-i)
-            if core in query and core not in ["ogolne", "przed"]:
+        # Rozbijamy klucz na pojedyncze słowa (np. "kierunek_lekarski" -> "kierunek", "lekarski")
+        key_words = key.replace("_", " ").split()
+        for word in key_words:
+            if len(word) > 3 and word[:4] in query: # Jeśli fragment klucza jest w pytaniu
                 return value, key
-                
-    return "Przepraszam, nie znalazłem w dokumentach odpowiedzi na to pytanie. Spróbuj zapytać konkretnie o ECTS, logistykę, fizjoterapię lub regulamin uczelni.", None
+    return None, None
 
-# --- 4. LEWY PANEL (HISTORIA) ---
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# --- 4. PANEL BOCZNY (HISTORIA - ZAWSZE WIDOCZNA) ---
+with st.sidebar:
+    st.markdown("### ✨ SAN AI History")
+    if st.button("➕ Rozpocznij nowy czat", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+    
+    st.divider()
+    st.caption("Ostatnie zapytania")
+    # Wyświetlamy ostatnie pytania użytkownika jako historię
+    if "messages" in st.session_state:
+        user_queries = [m["content"] for m in st.session_state.messages if m["role"] == "user"]
+        for q in user_queries[-5:]: # Pokaż ostatnie 5
+            st.write(f"💬 {q[:25]}...")
+
+# --- 5. GŁÓWNY EKRAN ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-with st.sidebar:
-    st.write("") 
-    if st.button("➕ Nowy czat", use_container_width=True, type="primary"):
-        if len(st.session_state.messages) > 0:
-            title = st.session_state.messages[0]["content"][:30] + "..."
-            st.session_state.chat_history.insert(0, {"title": title, "date": datetime.now().strftime("%H:%M")})
-        st.session_state.messages = []
-        st.rerun()
-
-    st.divider()
-    st.caption("Niedawne")
-    for chat in st.session_state.chat_history:
-        st.button(f"💬 {chat['title']}", key=f"hist_{chat['title']}", use_container_width=True)
-
-# --- 5. GŁÓWNY INTERFEJS ---
-if len(st.session_state.messages) == 0:
-    st.write("")
-    st.write("")
-    st.markdown('<div class="gemini-gradient">Witaj, studencie SAN</div>', unsafe_allow_html=True)
-    st.markdown('<div class="gemini-subtitle">W czym mogę Ci dzisiaj pomóc?</div>', unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        if st.button("📚\n\nSprawdź wymogi ECTS"): st.session_state.temp_prompt = "Ile punktów ECTS muszę zdobyć na semestr?"
-    with col2:
-        if st.button("🏥\n\nPraktyki Fizjoterapia"): st.session_state.temp_prompt = "Ile godzin praktyk zawodowych jest na fizjoterapii?"
-    with col3:
-        if st.button("⚖️\n\nRegulamin poprawkowy"): st.session_state.temp_prompt = "Jak działają terminy poprawkowe i wpis warunkowy?"
-    with col4:
-        if st.button("🎓\n\nObrona magisterska"): st.session_state.temp_prompt = "Jak wygląda proces obrony pracy dyplomowej?"
-
+if not st.session_state.messages:
+    st.markdown('<div class="gemini-gradient">Witaj w SAN AI</div>', unsafe_allow_html=True)
+    st.write("Zadaj pytanie o kierunek studiów, ECTS lub regulamin.")
+    
+    # Kafelki pomocnicze
+    c1, c2 = st.columns(2)
+    if c1.button("🎓 Ile trwa kierunek lekarski?"): st.session_state.chat_input_val = "lekarski"
+    if c2.button("📈 Ile punktów ECTS muszę mieć?"): st.session_state.chat_input_val = "ects"
 else:
     for message in st.session_state.messages:
-        avatar = "✨" if message["role"] == "assistant" else "👤"
-        with st.chat_message(message["role"], avatar=avatar):
+        with st.chat_message(message["role"], avatar=("✨" if message["role"] == "assistant" else "👤")):
             st.markdown(message["content"])
 
 # --- 6. OBSŁUGA CZATU ---
-prompt = st.chat_input("Wpisz pytanie...")
+# Mechanizm przechwytywania kliknięć w przyciski
+input_text = st.chat_input("W czym mogę pomóc?")
+if "chat_input_val" in st.session_state:
+    input_text = st.session_state.chat_input_val
+    del st.session_state.chat_input_val
 
-if "temp_prompt" in st.session_state:
-    prompt = st.session_state.temp_prompt
-    del st.session_state.temp_prompt
-
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    if len(st.session_state.messages) == 1:
-        st.rerun()
-
+if input_text:
+    # Dodaj i wyświetl pytanie
+    st.session_state.messages.append({"role": "user", "content": input_text})
     with st.chat_message("user", avatar="👤"):
-        st.markdown(prompt)
+        st.markdown(input_text)
 
+    # Odpowiedź bota
     with st.chat_message("assistant", avatar="✨"):
+        ans, source = robust_search(input_text)
+        
+        if ans:
+            response = ans
+            if source:
+                response += f"\n\n*Źródło: {source.replace('_', ' ').upper()}*"
+        else:
+            response = "Nie znalazłem dokładnej odpowiedzi. Spróbuj zapytać o: ECTS, lekarski, fizjoterapia, logistyka lub praktyki."
+
+        # Animacja pisania
         placeholder = st.empty()
-        full_res = ""
-        
-        answer, source = search_knowledge(prompt)
-        
-        for char in answer:
-            full_res += char
-            placeholder.markdown(full_res + "▌")
+        full_r = ""
+        for char in response:
+            full_r += char
+            placeholder.markdown(full_r + "▌")
             time.sleep(0.005)
+        placeholder.markdown(full_r)
         
-        if source:
-            full_res += f"\n\n<span style='color:gray; font-size: 0.85em;'>Informacja na podstawie: **{source.replace('_', ' ').upper()}**</span>"
-        
-        placeholder.markdown(full_res, unsafe_allow_html=True)
-        st.session_state.messages.append({"role": "assistant", "content": full_res})
+    st.session_state.messages.append({"role": "assistant", "content": full_r})
+    # Nie robimy st.rerun() tutaj, żeby nie "migało" i nie zwijało panelu
