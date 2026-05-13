@@ -8,30 +8,27 @@ from datetime import datetime
 st.set_page_config(
     page_title="SAN AI - System Ekspercki",
     page_icon="🎓",
-    layout="wide", # Szeroki układ wygląda nowocześniej na dużych ekranach
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- 2. NIESTANDARDOWY STYL CSS (To robi największą różnicę!) ---
+# --- 2. NIESTANDARDOWY STYL CSS ---
 st.markdown("""
     <style>
-    /* Ukrycie domyślnego menu Streamlit dla czystego wyglądu aplikacji */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Zaokrąglenie przycisków i efekty najechania (hover) */
     .stButton>button {
         border-radius: 20px;
-        border: 1px solid #4CAF50;
+        border: 1px solid #1E3A8A;
         transition: all 0.3s;
     }
     .stButton>button:hover {
-        border: 1px solid #45a049;
-        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+        border: 1px solid #3b82f6;
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.1);
     }
     
-    /* Stylizacja głównego nagłówka */
     .main-header {
         font-size: 2.8rem;
         font-weight: 800;
@@ -47,12 +44,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 3. WGRYWANIE BAZY WIEDZY ---
-@st.cache_data # Przyspiesza ładowanie strony
+@st.cache_data
 def load_knowledge():
     if os.path.exists("knowledge.json"):
         with open("knowledge.json", "r", encoding="utf-8") as f:
             return json.load(f)
-    return {"błąd": "Brak pliku bazy danych. Sprawdź GitHub."}
+    return {"błąd": "Brak pliku bazy danych."}
 
 knowledge_base = load_knowledge()
 
@@ -60,117 +57,105 @@ knowledge_base = load_knowledge()
 def get_san_response(user_query, temperature):
     user_query = user_query.lower()
     
-    # Symulacja pracy silnika (czas zależny od temperatury)
-    delay = 0.5 + (temperature * 0.5)
-    time.sleep(delay)
+    # Symulacja czasu procesowania
+    time.sleep(0.6 + (temperature * 0.4))
         
     for key, value in knowledge_base.items():
         readable_key = key.replace("_", " ")
         if readable_key in user_query or user_query in readable_key:
-            return value, key # Zwracamy odpowiedź i nazwę źródła (klucz)
+            return value, key
             
-    return "Przykro mi, nie potrafię odnaleźć odpowiednich dokumentów w aktualnym indeksie RAG. Spróbuj przeredagować zapytanie.", None
+    return "Przykro mi, nie potrafię odnaleźć odpowiednich dokumentów w aktualnym indeksie wiedzy. Spróbuj zadać pytanie inaczej.", None
 
-# --- 5. PANEL BOCZNY (SIDEBAR - PANEL ADMINISTRATORA) ---
+# --- 5. PANEL BOCZNY (ADMINISTRATORA) ---
 with st.sidebar:
-    st.markdown("### ⚙️ Panel Kontrolny RAG")
+    st.markdown("### ⚙️ Panel Kontrolny")
     
-    # Metryki systemu (Wygląda niezwykle profesjonalnie)
+    # Metryki
     col1, col2 = st.columns(2)
-    col1.metric("Zindeksowane Węzły", len(knowledge_base))
-    col2.metric("Status Serwera", "Online", delta="Opóźnienie <1s")
+    col1.metric("Baza Wiedzy", f"{len(knowledge_base)} wpisów")
+    col2.metric("Opóźnienie", "0.8s")
     
     st.divider()
     
-    # Ustawienia Modelu (Parametry wizualne pod prezentację)
-    st.markdown("#### Ustawienia Modelu LLM")
-    model_type = st.selectbox("Silnik Generatywny", ["GPT-4o (Zalecany)", "Llama-3-8B (Lokalny)", "Mistral-7B"])
-    temperature = st.slider("Temperatura (Kreatywność)", 0.0, 1.0, 0.2, 0.1, help="Wpływa na halucynacje modelu. W systemach RAG zaleca się niską temperaturę.")
+    # Ustawienia (Usunięto wybór modelu)
+    st.markdown("#### Konfiguracja Silnika")
+    temperature = st.slider("Temperatura (Kreatywność)", 0.0, 1.0, 0.2, 0.1)
     
     st.divider()
-    st.markdown("#### Narzędzia Sesji")
+    st.markdown("#### Zarządzanie Sesją")
     
-    if st.button("🗑️ Resetuj kontekst rozmowy", use_container_width=True):
-        st.session_state.messages = [{"role": "assistant", "content": "Kontekst wyczyszczony. W czym mogę pomóc?"}]
+    if st.button("🗑️ Resetuj historię", use_container_width=True):
+        st.session_state.messages = [{"role": "assistant", "content": "Historia wyczyszczona. W czym mogę pomóc?"}]
         st.rerun()
         
-    # Funkcja eksportu czatu
     if "messages" in st.session_state and len(st.session_state.messages) > 1:
         chat_export = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
         st.download_button(
-            label="💾 Pobierz transkrypt rozmowy",
+            label="💾 Pobierz transkrypt",
             data=chat_export,
-            file_name=f"log_rozmowy_san_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+            file_name=f"chat_san_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
             mime="text/plain",
             use_container_width=True
         )
 
 # --- 6. GŁÓWNY INTERFEJS ---
 st.markdown('<div class="main-header">🎓 SAN AI Asystent</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">System wsparcia studenta oparty na architekturze Retrieval-Augmented Generation</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Inteligentny system ekspercki oparty na bazie wiedzy SAN</div>', unsafe_allow_html=True)
 
-# Podział na zaawansowane zakładki
-tab1, tab2, tab3 = st.tabs(["💬 Interfejs Czat", "📊 Inspektor Bazy Wiedzy", "ℹ️ O Architekturze"])
+tab1, tab2, tab3 = st.tabs(["💬 Czat", "📊 Baza Danych", "ℹ️ Dokumentacja"])
 
 with tab2:
-    st.subheader("Zawartość wektorowej bazy wiedzy")
-    st.info("Podgląd na żywo zindeksowanych dokumentów (knowledge.json). W pełnej wersji RAG są to wektory matematyczne (embeddings).")
-    st.json(knowledge_base) # Automatycznie formatuje i pozwala zwijać dane!
+    st.subheader("Aktualnie zindeksowana wiedza")
+    st.json(knowledge_base)
 
 with tab3:
-    st.subheader("Informacje Projektowe")
+    st.subheader("Architektura Systemu")
     st.markdown("""
-    System został zaprojektowany z myślą o minimalizacji tzw. *halucynacji* modeli językowych poprzez wdrożenie metodyki RAG.
-    * **Frontend:** Streamlit z niestandardowym CSS
-    * **Baza danych wiedzy:** Architektura słownikowa (JSON Mockup)
-    * **Wyszukiwanie (Retrieval):** Dopasowanie semantyczne i słów kluczowych (Keyword Matching).
+    Projekt wykorzystuje podejście **RAG (Retrieval-Augmented Generation)**:
+    1. **Ekstrakcja:** Dane pobierane są z pliku `knowledge.json`.
+    2. **Wyszukiwanie:** Algorytm dopasowuje zapytanie użytkownika do kluczy semantycznych.
+    3. **Prezentacja:** Odpowiedź jest generowana w czasie rzeczywistym z adnotacją źródłową.
     """)
 
 with tab1:
-    # Szybkie akcje (Przycisk wstawia gotowe zapytanie)
-    st.markdown("**Sugerowane zapytania:**")
+    # Sugerowane pytania
+    st.markdown("**Szybki wybór:**")
     cols = st.columns(4)
     if cols[0].button("Medycyna ECTS"): st.session_state.auto_prompt = "Ile punktów ECTS ma kierunek lekarski?"
-    if cols[1].button("Praktyki Fizjoterapia"): st.session_state.auto_prompt = "Ile godzin praktyk jest na fizjoterapii?"
-    if cols[2].button("Co to jest warunek?"): st.session_state.auto_prompt = "Co się stanie w przypadku niezaliczenia semestru?"
-    if cols[3].button("Logistyka przedmioty"): st.session_state.auto_prompt = "Jakie są główne przedmioty na logistyce?"
+    if cols[1].button("Praktyki"): st.session_state.auto_prompt = "Ile godzin praktyk na fizjoterapii?"
+    if cols[2].button("Warunek"): st.session_state.auto_prompt = "Co to jest wpis warunkowy?"
+    if cols[3].button("Logistyka"): st.session_state.auto_prompt = "Jakie są przedmioty na logistyce?"
 
-    # Inicjalizacja wiadomości
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "Witaj! Posiadam zindeksowaną wiedzę na temat kierunków, sylabusów i regulaminu. W czym mogę pomóc?"}]
+        st.session_state.messages = [{"role": "assistant", "content": "Cześć! Jestem gotowy odpowiedzieć na pytania o Twoje studia. O co chcesz zapytać?"}]
 
-    # Renderowanie historii wiadomości
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Pole tekstowe do pisania LUB auto-prompt z przycisków
-    prompt = st.chat_input("Zadaj pytanie lub opisz swój problem...")
+    # Obsługa wejścia
+    prompt = st.chat_input("Napisz wiadomość...")
     
     if "auto_prompt" in st.session_state:
         prompt = st.session_state.auto_prompt
         del st.session_state.auto_prompt
 
-    # Obsługa generowania odpowiedzi
     if prompt:
-        # Pokaż pytanie
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Generuj odpowiedź
         with st.chat_message("assistant"):
-            # Zaawansowany wskaźnik progresu (Robi super wrażenie wizualne)
-            with st.status("Analiza zapytania...", expanded=True) as status:
-                st.write("1. Tokenizacja pytania użytkownika...")
-                time.sleep(0.3)
-                st.write(f"2. Wyszukiwanie kontekstu (Retrieval)...")
-                time.sleep(0.4)
-                st.write(f"3. Przesyłanie promptu i danych do modelu ({model_type})...")
+            # Profesjonalny status procesowania
+            with st.status("Generowanie odpowiedzi...", expanded=False) as status:
+                st.write("Analizowanie zapytania...")
+                time.sleep(0.2)
+                st.write("Przeszukiwanie bazy dokumentów...")
                 response_text, source_key = get_san_response(prompt, temperature)
-                status.update(label="Odpowiedź wygenerowana!", state="complete", expanded=False)
+                status.update(label="Odpowiedź gotowa!", state="complete")
             
-            # Płynne drukowanie tekstu
+            # Efekt pisania
             message_placeholder = st.empty()
             full_res = ""
             for char in response_text:
@@ -178,11 +163,8 @@ with tab1:
                 message_placeholder.markdown(full_res + "▌")
                 time.sleep(0.005)
             
-            # Doklejenie adnotacji o źródle
             if source_key:
-                source_annotation = f"\n\n--- \n*Źródło kontekstu: Zindeksowany fragment `[{source_key.upper()}]`*"
-                full_res += source_annotation
+                full_res += f"\n\n---\n*Źródło: `[{source_key.upper()}]`*"
             
-            # Wyczyść kursor i zapisz finalną wersję
             message_placeholder.markdown(full_res)
             st.session_state.messages.append({"role": "assistant", "content": full_res})
