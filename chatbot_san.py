@@ -2,184 +2,186 @@ import streamlit as st
 import time
 import json
 import os
+from datetime import datetime
 
 # --- 1. KONFIGURACJA STRONY ---
 st.set_page_config(
     page_title="SAN AI",
     page_icon="✨",
     layout="wide",
-    initial_sidebar_state="collapsed" # Domyślnie zwinięty pasek boczny dla minimalizmu
+    initial_sidebar_state="expanded"
 )
 
-# --- 2. CSS W STYLU GEMINI ---
+# --- 2. ZAAWANSOWANY CSS (STYL GEMINI PREMIUM) ---
 st.markdown("""
     <style>
-    /* Ukrycie elementów Streamlit */
+    /* Usunięcie elementów systemowych */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Globalna czcionka przypominająca Google Sans */
-    html, body, [class*="css"]  {
-        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    /* Tło i czcionki */
+    .main {
+        background-color: #f0f4f9;
     }
-    
-    /* Gradientowy tekst powitalny w stylu Gemini */
-    .gemini-title {
+    @media (prefers-color-scheme: dark) {
+        .main { background-color: #131314; }
+    }
+
+    /* Gradientowy napis Gemini */
+    .gemini-gradient {
         font-size: 3.5rem;
         font-weight: 500;
-        letter-spacing: -1px;
-        background: -webkit-linear-gradient(74deg, #4285f4 0, #9b72cb 9%, #d96570 20%, #d96570 24%, #9b72cb 35%, #4285f4 44%, #9b72cb 50%, #d96570 56%, #f39264 75%, #f39264 100%);
+        background: linear-gradient(74deg, #4285f4 0, #9b72cb 20%, #d96570 40%, #f39264 60%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0px;
-        line-height: 1.2;
     }
     .gemini-subtitle {
         font-size: 3.5rem;
         font-weight: 500;
         color: #c4c7c5;
-        letter-spacing: -1px;
-        margin-top: -10px;
+        margin-top: -15px;
         margin-bottom: 40px;
     }
 
-    /* Kafelki z podpowiedziami (Prompt Cards) */
+    /* Stylizacja lewego panelu (Historia) */
+    [data-testid="stSidebar"] {
+        background-color: #f0f4f9;
+        border-right: 1px solid #e3e3e3;
+    }
+    @media (prefers-color-scheme: dark) {
+        [data-testid="stSidebar"] {
+            background-color: #1e1e20;
+            border-right: 1px solid #333;
+        }
+    }
+
+    /* Kafelki sugestii (Cards) */
     .stButton>button {
         width: 100%;
-        height: 100px;
-        border-radius: 12px;
-        border: 1px solid #e0e0e0;
-        background-color: #f8f9fa;
-        color: #1f1f1f;
+        border-radius: 16px;
+        border: none;
+        background-color: #ffffff;
+        padding: 20px;
         text-align: left;
-        padding: 15px;
-        font-size: 1rem;
-        transition: background-color 0.2s, box-shadow 0.2s;
-        display: flex;
-        align-items: flex-start;
-        justify-content: flex-start;
-        white-space: normal;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
     }
-    
-    /* Tryb ciemny dla kafelków */
     @media (prefers-color-scheme: dark) {
-        .stButton>button {
-            background-color: #1e1e20;
-            border: 1px solid #333;
-            color: #e3e3e3;
-        }
-        .stButton>button:hover {
-            background-color: #2a2a2c;
-        }
-        .gemini-subtitle {
-            color: #444746;
-        }
+        .stButton>button { background-color: #1e1e20; color: white; box-shadow: none; border: 1px solid #333; }
     }
-    
     .stButton>button:hover {
-        background-color: #f0f4f9;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border-color: transparent;
+        transform: translateY(-2px);
+        background-color: #f8f9fa;
+    }
+
+    /* Wyśrodkowanie promptu na dole */
+    .stChatInputContainer {
+        padding-bottom: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. BAZA WIEDZY I LOGIKA ---
+# --- 3. LOGIKA BAZY WIEDZY ---
 @st.cache_data
 def load_knowledge():
     if os.path.exists("knowledge.json"):
         with open("knowledge.json", "r", encoding="utf-8") as f:
             return json.load(f)
-    return {"błąd": "Brak pliku bazy danych."}
+    return {"błąd": "Baza wiedzy nie została załadowana."}
 
 knowledge_base = load_knowledge()
 
-def get_san_response(user_query):
-    user_query = user_query.lower()
-    time.sleep(0.8) # Symulacja myślenia
-        
+def search_knowledge(query):
+    query = query.lower()
+    time.sleep(1.0) # Realistyczne opóźnienie AI
     for key, value in knowledge_base.items():
-        readable_key = key.replace("_", " ")
-        if readable_key in user_query or user_query in readable_key:
+        if key.replace("_", " ") in query or query in key:
             return value, key
-            
-    return "Przepraszam, ale nie znalazłem dokładnych informacji na ten temat w dostępnych regulaminach i sylabusach. Spróbuj zadać pytanie używając innych słów.", None
+    return "Przepraszam, nie znalazłem informacji na ten temat w dokumentacji SAN. Spróbuj zapytać o konkretny kierunek, punkty ECTS lub regulamin.", None
 
-# --- 4. PANEL BOCZNY (Tylko historia, jak w Gemini) ---
-with st.sidebar:
-    st.write("### Ostatnie rozmowy")
-    st.caption("Historia sesji (tymczasowa)")
-    if st.button("➕ Nowy czat", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
-
-# --- 5. INICJALIZACJA STANU ---
+# --- 4. ZARZĄDZANIE HISTORIĄ (LEWY PANEL) ---
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = [] # Lista tytułów rozmów
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 6. GŁÓWNY INTERFEJS (Ekran powitalny vs Czat) ---
+with st.sidebar:
+    st.write("") 
+    if st.button("➕ Nowy czat", use_container_width=True, type="primary"):
+        if len(st.session_state.messages) > 0:
+            # Zapisz obecny czat do historii przed czyszczeniem
+            title = st.session_state.messages[0]["content"][:30] + "..."
+            st.session_state.chat_history.insert(0, {"title": title, "date": datetime.now().strftime("%H:%M")})
+        st.session_state.messages = []
+        st.rerun()
+
+    st.divider()
+    st.caption("Niedawne")
+    for chat in st.session_state.chat_history:
+        st.button(f"💬 {chat['title']}", key=f"hist_{chat['title']}", use_container_width=True)
+
+# --- 5. GŁÓWNY INTERFEJS (PRAWY PANEL) ---
 if len(st.session_state.messages) == 0:
-    # Ekran początkowy (Pokazuje się tylko, gdy nie ma wiadomości)
-    st.markdown('<div class="gemini-title">Witaj, studencie</div>', unsafe_allow_html=True)
+    # EKRAN POWITALNY (Gdy czat jest pusty)
+    st.write("")
+    st.write("")
+    st.markdown('<div class="gemini-gradient">Witaj, studencie SAN</div>', unsafe_allow_html=True)
     st.markdown('<div class="gemini-subtitle">W czym mogę Ci dzisiaj pomóc?</div>', unsafe_allow_html=True)
-    
-    st.write("") # Odstęp
-    
-    cols = st.columns(4)
-    # Kafelki pytań
-    if cols[0].button("📚\n\nJakie są wymogi punktów ECTS na uczelni?"): 
-        st.session_state.auto_prompt = "Ile punktów ECTS muszę zdobyć?"
-    if cols[1].button("🏥\n\nIle trwają praktyki na kierunku fizjoterapia?"): 
-        st.session_state.auto_prompt = "Ile godzin praktyk na fizjoterapii?"
-    if cols[2].button("📝\n\nJakie są zasady poprawiania egzaminów?"): 
-        st.session_state.auto_prompt = "Co to jest wpis warunkowy i jak działają poprawki?"
-    if cols[3].button("🎓\n\nJak wygląda obrona pracy dyplomowej?"): 
-        st.session_state.auto_prompt = "Zasady dotyczące pracy dyplomowej."
+
+    # KAFELKI SUGESTII
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if st.button("📚\n\nSprawdź wymogi ECTS"): st.session_state.temp_prompt = "Ile punktów ECTS muszę zdobyć na semestr?"
+    with col2:
+        if st.button("🏥\n\nPraktyki Fizjoterapia"): st.session_state.temp_prompt = "Ile godzin praktyk zawodowych jest na fizjoterapii?"
+    with col3:
+        if st.button("⚖️\n\nRegulamin poprawkowy"): st.session_state.temp_prompt = "Jak działają terminy poprawkowe i wpis warunkowy?"
+    with col4:
+        if st.button("🎓\n\nObrona magisterska"): st.session_state.temp_prompt = "Jak wygląda proces obrony pracy dyplomowej?"
 
 else:
-    # Renderowanie historii czatu (jeśli już trwa rozmowa)
+    # WYŚWIETLANIE ROZMOWY
     for message in st.session_state.messages:
-        # Używamy ✨ jako avatara dla bota i domyślnego dla użytkownika
         avatar = "✨" if message["role"] == "assistant" else "👤"
         with st.chat_message(message["role"], avatar=avatar):
             st.markdown(message["content"])
 
-# --- 7. POLE WEJŚCIOWE ---
-prompt = st.chat_input("Wpisz swoje pytanie tutaj...")
-    
-# Przechwycenie pytania z kafelków
-if "auto_prompt" in st.session_state:
-    prompt = st.session_state.auto_prompt
-    del st.session_state.auto_prompt
+# --- 6. OBSŁUGA WEJŚCIA (CHAT INPUT) ---
+prompt = st.chat_input("Wpisz pytanie...")
+
+# Obsługa kliknięcia w kafelki
+if "temp_prompt" in st.session_state:
+    prompt = st.session_state.temp_prompt
+    del st.session_state.temp_prompt
 
 if prompt:
-    # Zapisz pytanie użytkownika
+    # Dodaj pytanie użytkownika
     st.session_state.messages.append({"role": "user", "content": prompt})
     
-    # Przeładuj stronę, żeby ukryć ekran powitalny i pokazać pytanie
+    # Odśwież, aby pokazać czat zamiast ekranu powitalnego
     if len(st.session_state.messages) == 1:
         st.rerun()
-        
+
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
 
-    # Odpowiedź bota
     with st.chat_message("assistant", avatar="✨"):
-        message_placeholder = st.empty()
-        
-        response_text, source_key = get_san_response(prompt)
-        
-        # Płynne generowanie tekstu
+        placeholder = st.empty()
         full_res = ""
-        for char in response_text:
-            full_res += char
-            message_placeholder.markdown(full_res + "▌")
-            time.sleep(0.005) # Szybkość pisania
         
-        # Wyświetlenie dyskretnego źródła (jak przypisy w Gemini)
-        if source_key:
-            full_res += f"\n\n<span style='color:gray; font-size: 0.8em;'>Źródło danych: {source_key.replace('_', ' ').capitalize()}</span>"
-            
-        message_placeholder.markdown(full_res, unsafe_allow_html=True)
+        # Logika wyszukiwania
+        answer, source = search_knowledge(prompt)
+        
+        # Animacja pisania
+        for char in answer:
+            full_res += char
+            placeholder.markdown(full_res + "▌")
+            time.sleep(0.005)
+        
+        if source:
+            full_res += f"\n\n<span style='color:gray; font-size: 0.85em;'>Informacja na podstawie: **{source.replace('_', ' ').upper()}**</span>"
+        
+        placeholder.markdown(full_res, unsafe_allow_html=True)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
