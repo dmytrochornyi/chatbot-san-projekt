@@ -2,135 +2,132 @@ import streamlit as st
 import time
 import json
 import os
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 # --- 1. KONFIGURACJA STRONY ---
 st.set_page_config(
-    page_title="SAN AI",
+    page_title="SAN AI - System RAG",
     page_icon="✨",
     layout="wide",
-    initial_sidebar_state="expanded" # Panel boczny domyślnie otwarty
+    initial_sidebar_state="expanded"
 )
 
-# --- 2. CSS - WYGLĄD GEMINI I ZABLOKOWANIE PANELU ---
+# --- 2. CSS - STYL GEMINI ---
 st.markdown("""
     <style>
-    /* Ukrycie przycisku zamykania panelu bocznego (blokada) */
     [data-testid="sidebar-close-button"] { display: none; }
     button[kind="header"] { display: none; }
-    
-    /* Ukrycie menu i stopki */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* Styl tła */
-    .main { background-color: #f0f4f9; }
-    @media (prefers-color-scheme: dark) { .main { background-color: #131314; } }
-
-    /* Gradientowy napis Gemini */
+    .main { background-color: #131314; color: #e3e3e3; }
     .gemini-title {
-        font-size: 3.5rem;
+        font-size: 3rem;
         font-weight: 500;
-        background: linear-gradient(74deg, #4285f4 0, #9b72cb 20%, #d96570 40%, #f39264 60%);
+        background: linear-gradient(74deg, #4285f4 0, #9b72cb 20%, #d96570 40%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0px;
+        margin-bottom: 0.5rem;
     }
-    .gemini-subtitle {
-        font-size: 1.6rem;
-        color: #757575;
-        margin-top: -10px;
-        margin-bottom: 40px;
-    }
+    .subtitle { color: #8e918f; font-size: 1.5rem; margin-bottom: 2rem; }
     </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# --- 3. WCZYTYWANIE BAZY WIEDZY ---
-@st.cache_data
-def load_data():
+# --- 3. LOGIKA RAG (PDF + JSON) ---
+@st.cache_resource
+def load_embeddings():
+    # Pobieranie i ładowanie prawdziwego modelu wielojęzycznego do embeddingów
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+
+def load_knowledge_json():
     if os.path.exists("knowledge.json"):
         with open("knowledge.json", "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
-knowledge_base = load_data()
+@st.cache_resource
+def process_pdf(_uploaded_file):
+    # Podkreślnik przed uploaded_file chroni przed błędem hashowania w Streamlit Cache
+    with open("temp_upload.pdf", "wb") as f:
+        f.write(_uploaded_file.getbuffer())
+    
+    loader = PyPDFLoader("temp_upload.pdf")
+    pages = loader.load()
+    
+    # Podział tekstu na optymalne kawałki
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
+    chunks = text_splitter.split_documents(pages)
+    
+    # Tworzenie bazy wektorowej FAISS z prawdziwymi embeddingami
+    embeddings = load_embeddings()
+    vector_db = FAISS.from_documents(chunks, embeddings)
+    return vector_db
 
-# --- 4. INICJALIZACJA PAMIĘCI (SESSION STATE) ---
+def get_answer(query, vector_db=None):
+    # 1. RAG - szukanie we wgranym PDF
+    if vector_db:
+        # Wyszukujemy 2 najbardziej podobne fragmenty z dokumentu
+        search_results = vector_db.similarity_search(query, k=2)
+        if search_results:
+            context = "\n\n".join([doc.page_content for doc in search_results])
+            return f"**Znalazłem w przesłanym dokumencie:**\n\n{context}"
+
+    # 2. Awaryjne szukanie w knowledge.json
+    kb = load_knowledge_json()
+    q_low = query.lower()
+    for key, content in kb.items():
+        if key.replace("_", " ") in q_low:
+            return content
+            
+    return "Niestety nie znalazłem informacji na ten temat w bazie wiedzy ani w przesłanym pliku."
+
+# --- 4. PANEL BOCZNY ---
+with st.sidebar:
+    st.markdown("<h1 style='color: white;'>SAN AI</h1>", unsafe_allow_html=True)
+    st.divider()
+    
+    st.subheader("📁 Baza Wiedzy PDF")
+    pdf_file = st.file_uploader("Wgraj regulamin (PDF)", type="pdf")
+    
+    v_db = None
+    if pdf_file:
+        with st.spinner("Indeksowanie dokumentu i generowanie wektorów..."):
+            v_db = process_pdf(pdf_file)
+        st.success("PDF załadowany i wektoryzacja zakończona!")
+    
+    st.divider()
+    if st.button("Wyczyść czat"):
+        st.session_state.messages = []
+        st.rerun()
+
+# --- 5. GŁÓWNY CZAT ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 5. PANEL BOCZNY (HISTORIA - LEWA STRONA) ---
-with st.sidebar:
-    st.markdown("### ✨ SAN AI")
-    st.caption("Asystent Akademicki")
-    
-    if st.button("➕ Nowa rozmowa", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
-    
-    st.divider()
-    st.write("**Ostatnie pytania:**")
-    
-    # Wyświetlanie historii pytań użytkownika w panelu bocznym
-    for msg in st.session_state.messages:
-        if msg["role"] == "user":
-            # Wyświetla krótką wersję pytania
-            st.markdown(f"💬 `{msg['content'][:25]}...`")
-
-# --- 6. GŁÓWNY INTERFEJS (CZAT) ---
-
-# A. Jeśli czat jest pusty -> Pokaż ekran powitalny
 if not st.session_state.messages:
-    st.write("")
-    st.write("")
-    st.markdown('<div class="gemini-title">Witaj, studencie</div>', unsafe_allow_html=True)
-    st.markdown('<div class="gemini-subtitle">W czym mogę Ci dzisiaj pomóc?</div>', unsafe_allow_html=True)
+    st.markdown('<h1 class="gemini-title">Cześć,</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Jestem Twoim asystentem SAN. Wgraj PDF w panelu bocznym lub zadaj pytanie.</p>', unsafe_allow_html=True)
 
-# B. Wyświetlanie wiadomości (zawsze na początku, aby historia była widoczna)
-for message in st.session_state.messages:
-    avatar = "✨" if message["role"] == "assistant" else "👤"
-    with st.chat_message(message["role"], avatar=avatar):
-        st.markdown(message["content"])
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "✨"):
+        st.markdown(msg["content"])
 
-# C. Obsługa nowego pytania (Input na dole)
-if prompt := st.chat_input("Wpisz pytanie do bazy SAN..."):
-    
-    # 1. Wyświetlamy pytanie użytkownika natychmiast
+if prompt := st.chat_input("O co chcesz zapytać?"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
-    
-    # 2. Zapisujemy do pamięci
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    
-    # 3. Szukamy odpowiedzi w bazie
+
     with st.chat_message("assistant", avatar="✨"):
-        response = "Przepraszam, nie znalazłem informacji na ten temat. Spróbuj zapytać o ECTS, regulamin, logistykę lub fizjoterapię."
-        found_source = None
-        
-        # Proste wyszukiwanie słów kluczowych
-        p_lower = prompt.lower()
-        for key, value in knowledge_base.items():
-            clean_key = key.replace("_", " ")
-            if clean_key in p_lower or p_lower in clean_key:
-                response = value
-                found_source = key
-                break
-        
-        # Animacja pisania
+        full_text = get_answer(prompt, v_db)
         placeholder = st.empty()
-        full_res = ""
-        for char in response:
-            full_res += char
-            placeholder.markdown(full_res + "▌")
+        curr = ""
+        # Animacja pisania
+        for char in full_text:
+            curr += char
+            placeholder.markdown(curr + "▌")
             time.sleep(0.005)
-        
-        if found_source:
-            full_res += f"\n\n*Źródło: {found_source.upper()}*"
-            
-        placeholder.markdown(full_res)
-        
-        # 4. Zapisujemy odpowiedź bota do pamięci
-        st.session_state.messages.append({"role": "assistant", "content": full_res})
-    
-    # Wymuszamy odświeżenie panelu bocznego, by dodać tam nowe pytanie
-    st.rerun()
+        placeholder.markdown(curr)
+        st.session_state.messages.append({"role": "assistant", "content": curr})
