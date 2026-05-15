@@ -39,8 +39,8 @@ st.markdown("""
 # --- 3. LOGIKA RAG I BAZY WIEDZY ---
 @st.cache_resource
 def load_embeddings():
-    # Model wielojęzyczny (obsługuje polski)
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    # Używamy mniejszego, szybszego modelu
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 @st.cache_resource
 def init_rag():
