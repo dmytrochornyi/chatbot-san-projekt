@@ -14,15 +14,15 @@ export function ThreadListSidebar({
 }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar {...props}>
-      <SidebarHeader className="aui-sidebar-header mb-2 border-b px-4 py-3">
-        <Link href="/" className="flex items-center transition-opacity hover:opacity-75">
+      <SidebarHeader className="aui-sidebar-header mb-2 border-b px-3 py-4">
+        <Link href="/" className="w-full transition-opacity hover:opacity-75">
           <Image
             src="/logo-san-2.png"
             alt="SAN AI"
             width={1255}
             height={365}
             priority
-            className="w-40 h-auto object-contain"
+            className="w-full h-auto"
           />
         </Link>
       </SidebarHeader>
