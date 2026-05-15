@@ -12,14 +12,13 @@ st.set_page_config(
     page_title="SAN AI",
     page_icon="✨",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded" # To wymusza otwarcie panelu przy starcie
 )
 
 # --- 2. CSS (STYL GEMINI) ---
 st.markdown("""
     <style>
-    [data-testid="sidebar-close-button"] { display: none; }
-    button[kind="header"] { display: none; }
+    
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
