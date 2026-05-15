@@ -5,7 +5,7 @@ import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 
 # --- 1. KONFIGURACJA STRONY ---
 st.set_page_config(
@@ -39,20 +39,29 @@ st.markdown("""
 # --- 3. LOGIKA RAG I BAZY WIEDZY ---
 @st.cache_resource
 def load_embeddings():
-    # Używamy mniejszego, szybszego modelu
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    # Najlżejszy dostępny model obsługujący język polski (bezpieczny dla Streamlit Cloud)
+    model_name = "BAAI/bge-small-en-v1.5"
+    encode_kwargs = {'normalize_embeddings': True}
+    return HuggingFaceBgeEmbeddings(
+        model_name=model_name,
+        model_kwargs={'device': 'cpu'},
+        encode_kwargs=encode_kwargs
+    )
 
 @st.cache_resource
 def init_rag():
     """Automatyczne ładowanie PDF z GitHuba jeśli istnieje"""
-    pdf_name = "regulamin.pdf"  # Tak nazwij swój plik na GitHubie
+    pdf_name = "regulamin.pdf" 
     if os.path.exists(pdf_name):
-        loader = PyPDFLoader(pdf_name)
-        pages = loader.load()
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
-        chunks = text_splitter.split_documents(pages)
-        embeddings = load_embeddings()
-        return FAISS.from_documents(chunks, embeddings)
+        try:
+            loader = PyPDFLoader(pdf_name)
+            pages = loader.load()
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
+            chunks = text_splitter.split_documents(pages)
+            embeddings = load_embeddings()
+            return FAISS.from_documents(chunks, embeddings)
+        except Exception as e:
+            return f"Error: {str(e)}"
     return None
 
 def load_knowledge_json():
@@ -63,7 +72,7 @@ def load_knowledge_json():
 
 def get_answer(query, vector_db):
     # 1. Najpierw szukamy w PDF (RAG)
-    if vector_db:
+    if vector_db and not isinstance(vector_db, str):
         results = vector_db.similarity_search(query, k=2)
         if results:
             context = "\n\n".join([doc.page_content for doc in results])
@@ -72,9 +81,9 @@ def get_answer(query, vector_db):
     # 2. Jeśli nie ma w PDF, szukamy w knowledge.json
     kb = load_knowledge_json()
     q_low = query.lower()
-    for key, content in kb.items():
-        if key.replace("_", " ") in q_low:
-            return content
+    for key, value in kb.items():
+        if key.replace("_", " ") in q_low or q_low in key.replace("_", " "):
+            return value
             
     return "Przepraszam, nie znalazłem informacji na ten temat w moich bazach danych."
 
@@ -102,26 +111,36 @@ if prompt := st.chat_input("Zadaj pytanie dotyczące studiów..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar="✨"):
-        full_text = get_answer(prompt, v_db)
+        response_text = get_answer(prompt, v_db)
         placeholder = st.empty()
         curr = ""
-        for char in full_text:
+        for char in response_text:
             curr += char
             placeholder.markdown(curr + "▌")
             time.sleep(0.005)
         placeholder.markdown(curr)
         st.session_state.messages.append({"role": "assistant", "content": curr})
 
-# Panel boczny (tylko informacyjny)
+# --- 6. PANEL BOCZNY (INFORMACYJNY) ---
 with st.sidebar:
     st.markdown("<h1 style='color: white;'>SAN AI</h1>", unsafe_allow_html=True)
-    st.write("Status bazy wiedzy:")
-    if v_db:
-        st.success("✅ Regulamin PDF załadowany")
-    else:
-        st.warning("⚠️ Brak pliku regulamin.pdf na GitHubie")
+    st.write("---")
+    st.write("**Status Systemu:**")
     
+    if v_db:
+        if isinstance(v_db, str):
+            st.error(f"❌ Błąd PDF: {v_db}")
+        else:
+            st.success("✅ Regulamin PDF aktywny")
+    else:
+        st.warning("⚠️ Brak pliku regulamin.pdf")
+        
     if os.path.exists("knowledge.json"):
-        st.success("✅ knowledge.json załadowany")
+        st.success("✅ knowledge.json aktywny")
     else:
         st.warning("⚠️ Brak pliku knowledge.json")
+    
+    st.write("---")
+    if st.button("Wyczyść historię"):
+        st.session_state.messages = []
+        st.rerun()
