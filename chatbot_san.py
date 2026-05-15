@@ -12,17 +12,19 @@ st.set_page_config(
     page_title="SAN AI",
     page_icon="✨",
     layout="wide",
-    initial_sidebar_state="expanded" # To wymusza otwarcie panelu przy starcie
+    initial_sidebar_state="expanded"
 )
 
 # --- 2. CSS (STYL GEMINI) ---
 st.markdown("""
     <style>
-    
+    /* Usunięto blokady przycisków, aby panel boczny był zawsze dostępny */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
     .main { background-color: #131314; color: #e3e3e3; }
+    
     .gemini-title {
         font-size: 3rem;
         font-weight: 500;
@@ -38,50 +40,63 @@ st.markdown("""
 # --- 3. LOGIKA RAG I BAZY WIEDZY ---
 @st.cache_resource
 def load_embeddings():
-    # Najlżejszy dostępny model obsługujący język polski (bezpieczny dla Streamlit Cloud)
-    model_name = "BAAI/bge-small-en-v1.5"
-    encode_kwargs = {'normalize_embeddings': True}
-    return HuggingFaceBgeEmbeddings(
-        model_name=model_name,
-        model_kwargs={'device': 'cpu'},
-        encode_kwargs=encode_kwargs
-    )
+    try:
+        # Model BGE-Small (lekki i wydajny dla darmowych serwerów)
+        model_name = "BAAI/bge-small-en-v1.5"
+        encode_kwargs = {'normalize_embeddings': True}
+        return HuggingFaceBgeEmbeddings(
+            model_name=model_name,
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs=encode_kwargs
+        )
+    except Exception as e:
+        st.sidebar.error(f"Błąd pobierania modelu AI: {e}")
+        return None
 
 @st.cache_resource
 def init_rag():
     """Automatyczne ładowanie PDF z GitHuba jeśli istnieje"""
     pdf_name = "regulamin.pdf" 
     if os.path.exists(pdf_name):
+        embeddings = load_embeddings()
+        if embeddings is None:
+            return "Błąd: Brak modelu embeddingów."
         try:
             loader = PyPDFLoader(pdf_name)
             pages = loader.load()
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
             chunks = text_splitter.split_documents(pages)
-            embeddings = load_embeddings()
             return FAISS.from_documents(chunks, embeddings)
         except Exception as e:
-            return f"Error: {str(e)}"
+            return f"Błąd PDF: {str(e)}"
     return None
 
 def load_knowledge_json():
     if os.path.exists("knowledge.json"):
-        with open("knowledge.json", "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open("knowledge.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return {}
     return {}
 
 def get_answer(query, vector_db):
-    # 1. Najpierw szukamy w PDF (RAG)
+    # 1. RAG (PDF)
     if vector_db and not isinstance(vector_db, str):
-        results = vector_db.similarity_search(query, k=2)
-        if results:
-            context = "\n\n".join([doc.page_content for doc in results])
-            return f"**Znalazłem w dokumentach uczelni:**\n\n{context}"
+        try:
+            results = vector_db.similarity_search(query, k=2)
+            if results:
+                context = "\n\n".join([doc.page_content for doc in results])
+                return f"**Znalazłem w dokumentach uczelni:**\n\n{context}"
+        except:
+            pass
 
-    # 2. Jeśli nie ma w PDF, szukamy w knowledge.json
+    # 2. JSON
     kb = load_knowledge_json()
     q_low = query.lower()
     for key, value in kb.items():
-        if key.replace("_", " ") in q_low or q_low in key.replace("_", " "):
+        clean_key = key.replace("_", " ")
+        if clean_key in q_low or q_low in clean_key:
             return value
             
     return "Przepraszam, nie znalazłem informacji na ten temat w moich bazach danych."
@@ -93,17 +108,14 @@ v_db = init_rag()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Ekran powitalny
 if not st.session_state.messages:
     st.markdown('<h1 class="gemini-title">Cześć,</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Jestem inteligentnym asystentem SAN. O co chcesz zapytać?</p>', unsafe_allow_html=True)
 
-# Wyświetlanie historii
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "✨"):
         st.markdown(msg["content"])
 
-# Obsługa pytania
 if prompt := st.chat_input("Zadaj pytanie dotyczące studiów..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="👤"):
@@ -124,11 +136,11 @@ if prompt := st.chat_input("Zadaj pytanie dotyczące studiów..."):
 with st.sidebar:
     st.markdown("<h1 style='color: white;'>SAN AI</h1>", unsafe_allow_html=True)
     st.write("---")
-    st.write("**Status Systemu:**")
+    st.write("**Status Bazy Wiedzy:**")
     
     if v_db:
         if isinstance(v_db, str):
-            st.error(f"❌ Błąd PDF: {v_db}")
+            st.error(v_db)
         else:
             st.success("✅ Regulamin PDF aktywny")
     else:
