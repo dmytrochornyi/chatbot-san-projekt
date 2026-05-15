@@ -9,13 +9,13 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 
 # --- 1. KONFIGURACJA STRONY ---
 st.set_page_config(
-    page_title="SAN AI - System RAG",
+    page_title="SAN AI",
     page_icon="✨",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- 2. CSS - STYL GEMINI ---
+# --- 2. CSS (STYL GEMINI) ---
 st.markdown("""
     <style>
     [data-testid="sidebar-close-button"] { display: none; }
@@ -36,11 +36,24 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. LOGIKA RAG (PDF + JSON) ---
+# --- 3. LOGIKA RAG I BAZY WIEDZY ---
 @st.cache_resource
 def load_embeddings():
-    # Pobieranie i ładowanie prawdziwego modelu wielojęzycznego do embeddingów
+    # Model wielojęzyczny (obsługuje polski)
     return HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+
+@st.cache_resource
+def init_rag():
+    """Automatyczne ładowanie PDF z GitHuba jeśli istnieje"""
+    pdf_name = "regulamin.pdf"  # Tak nazwij swój plik na GitHubie
+    if os.path.exists(pdf_name):
+        loader = PyPDFLoader(pdf_name)
+        pages = loader.load()
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
+        chunks = text_splitter.split_documents(pages)
+        embeddings = load_embeddings()
+        return FAISS.from_documents(chunks, embeddings)
+    return None
 
 def load_knowledge_json():
     if os.path.exists("knowledge.json"):
@@ -48,74 +61,42 @@ def load_knowledge_json():
             return json.load(f)
     return {}
 
-@st.cache_resource
-def process_pdf(_uploaded_file):
-    # Podkreślnik przed uploaded_file chroni przed błędem hashowania w Streamlit Cache
-    with open("temp_upload.pdf", "wb") as f:
-        f.write(_uploaded_file.getbuffer())
-    
-    loader = PyPDFLoader("temp_upload.pdf")
-    pages = loader.load()
-    
-    # Podział tekstu na optymalne kawałki
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
-    chunks = text_splitter.split_documents(pages)
-    
-    # Tworzenie bazy wektorowej FAISS z prawdziwymi embeddingami
-    embeddings = load_embeddings()
-    vector_db = FAISS.from_documents(chunks, embeddings)
-    return vector_db
-
-def get_answer(query, vector_db=None):
-    # 1. RAG - szukanie we wgranym PDF
+def get_answer(query, vector_db):
+    # 1. Najpierw szukamy w PDF (RAG)
     if vector_db:
-        # Wyszukujemy 2 najbardziej podobne fragmenty z dokumentu
-        search_results = vector_db.similarity_search(query, k=2)
-        if search_results:
-            context = "\n\n".join([doc.page_content for doc in search_results])
-            return f"**Znalazłem w przesłanym dokumencie:**\n\n{context}"
+        results = vector_db.similarity_search(query, k=2)
+        if results:
+            context = "\n\n".join([doc.page_content for doc in results])
+            return f"**Znalazłem w dokumentach uczelni:**\n\n{context}"
 
-    # 2. Awaryjne szukanie w knowledge.json
+    # 2. Jeśli nie ma w PDF, szukamy w knowledge.json
     kb = load_knowledge_json()
     q_low = query.lower()
     for key, content in kb.items():
         if key.replace("_", " ") in q_low:
             return content
             
-    return "Niestety nie znalazłem informacji na ten temat w bazie wiedzy ani w przesłanym pliku."
+    return "Przepraszam, nie znalazłem informacji na ten temat w moich bazach danych."
 
-# --- 4. PANEL BOCZNY ---
-with st.sidebar:
-    st.markdown("<h1 style='color: white;'>SAN AI</h1>", unsafe_allow_html=True)
-    st.divider()
-    
-    st.subheader("📁 Baza Wiedzy PDF")
-    pdf_file = st.file_uploader("Wgraj regulamin (PDF)", type="pdf")
-    
-    v_db = None
-    if pdf_file:
-        with st.spinner("Indeksowanie dokumentu i generowanie wektorów..."):
-            v_db = process_pdf(pdf_file)
-        st.success("PDF załadowany i wektoryzacja zakończona!")
-    
-    st.divider()
-    if st.button("Wyczyść czat"):
-        st.session_state.messages = []
-        st.rerun()
+# --- 4. URUCHOMIENIE BAZY ---
+v_db = init_rag()
 
-# --- 5. GŁÓWNY CZAT ---
+# --- 5. INTERFEJS CZATU ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Ekran powitalny
 if not st.session_state.messages:
     st.markdown('<h1 class="gemini-title">Cześć,</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">Jestem Twoim asystentem SAN. Wgraj PDF w panelu bocznym lub zadaj pytanie.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Jestem inteligentnym asystentem SAN. O co chcesz zapytać?</p>', unsafe_allow_html=True)
 
+# Wyświetlanie historii
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "✨"):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("O co chcesz zapytać?"):
+# Obsługa pytania
+if prompt := st.chat_input("Zadaj pytanie dotyczące studiów..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
@@ -124,10 +105,23 @@ if prompt := st.chat_input("O co chcesz zapytać?"):
         full_text = get_answer(prompt, v_db)
         placeholder = st.empty()
         curr = ""
-        # Animacja pisania
         for char in full_text:
             curr += char
             placeholder.markdown(curr + "▌")
             time.sleep(0.005)
         placeholder.markdown(curr)
         st.session_state.messages.append({"role": "assistant", "content": curr})
+
+# Panel boczny (tylko informacyjny)
+with st.sidebar:
+    st.markdown("<h1 style='color: white;'>SAN AI</h1>", unsafe_allow_True=True)
+    st.write("Status bazy wiedzy:")
+    if v_db:
+        st.success("✅ Regulamin PDF załadowany")
+    else:
+        st.warning("⚠️ Brak pliku regulamin.pdf na GitHubie")
+    
+    if os.path.exists("knowledge.json"):
+        st.success("✅ knowledge.json załadowany")
+    else:
+        st.warning("⚠️ Brak pliku knowledge.json")
