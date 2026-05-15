@@ -15,7 +15,7 @@ export function ThreadListSidebar({
   return (
     <Sidebar {...props}>
       <SidebarHeader className="aui-sidebar-header mb-2 border-b px-3 py-4">
-        <Link href="/" className="w-full transition-opacity hover:opacity-75">
+        <Link href="/" className="mx-auto w-3/4 transition-opacity hover:opacity-75">
           <Image
             src="/logo-san-2.png"
             alt="SAN AI"
