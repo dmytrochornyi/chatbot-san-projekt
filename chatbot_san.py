@@ -114,7 +114,7 @@ if prompt := st.chat_input("Zadaj pytanie dotyczące studiów..."):
 
 # Panel boczny (tylko informacyjny)
 with st.sidebar:
-    st.markdown("<h1 style='color: white;'>SAN AI</h1>", unsafe_allow_True=True)
+    st.markdown("<h1 style='color: white;'>SAN AI</h1>", unsafe_allow_html=True)
     st.write("Status bazy wiedzy:")
     if v_db:
         st.success("✅ Regulamin PDF załadowany")
