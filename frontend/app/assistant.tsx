@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import {
   useChatRuntime,
@@ -14,7 +13,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ThreadListSidebar } from "@/components/assistant-ui/threadlist-sidebar";
-import { Separator } from "@/components/ui/separator";
 
 export const Assistant = () => {
   const runtime = useChatRuntime({
@@ -32,15 +30,6 @@ export const Assistant = () => {
           <SidebarInset>
             <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
               <SidebarTrigger />
-              <Separator orientation="vertical" className="mr-2 h-4" />
-              <Image
-                src="/logo-san.png"
-                alt="SAN AI"
-                width={120}
-                height={40}
-                priority
-                className="object-contain"
-              />
             </header>
             <div className="flex-1 overflow-hidden">
               <Thread />
