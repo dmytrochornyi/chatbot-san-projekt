@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import chat
+from routers import chat, retrieve
 
 app = FastAPI(title="SAN Chatbot API")
 
@@ -13,3 +13,4 @@ app.add_middleware(
 )
 
 app.include_router(chat.router, prefix="/api")
+app.include_router(retrieve.router, prefix="/api")

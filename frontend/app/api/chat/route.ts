@@ -1,33 +1,45 @@
+import { createOpenAI } from "@ai-sdk/openai";
+import { streamText, convertToModelMessages, type UIMessage } from "ai";
+
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
+const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3.2";
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  const { messages }: { messages: UIMessage[] } = await req.json();
 
-  const messages = (body.messages ?? []).map(
-    (m: { role: string; content: unknown }) => ({
-      role: m.role,
-      content:
-        typeof m.content === "string"
-          ? m.content
-          : Array.isArray(m.content)
-            ? (m.content as { type: string; text?: string }[])
-                .filter((p) => p.type === "text")
-                .map((p) => p.text ?? "")
-                .join("")
-            : "",
-    }),
-  );
+  const lastMessage = messages[messages.length - 1];
+  const question =
+    typeof lastMessage?.content === "string"
+      ? lastMessage.content
+      : (lastMessage?.content as Array<{ type: string; text?: string }>)
+          ?.filter((p) => p.type === "text")
+          .map((p) => p.text ?? "")
+          .join("") ?? "";
 
-  const response = await fetch(`${BACKEND_URL}/api/chat`, {
+  const retrieveRes = await fetch(`${BACKEND_URL}/api/retrieve`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ question }),
+  });
+  const { context } = await retrieveRes.json();
+
+  const ollama = createOpenAI({
+    baseURL: `${OLLAMA_URL}/v1`,
+    apiKey: "ollama",
   });
 
-  return new Response(response.body, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "X-Vercel-AI-Data-Stream": "v1",
-    },
+  const result = streamText({
+    model: ollama(OLLAMA_MODEL),
+    system: `You are a helpful academic assistant for Społeczna Akademia Nauk (SAN) university.
+Answer the student's question using only the provided context from university documents.
+If the context does not contain enough information to answer, say so honestly.
+Answer in the same language as the question.
+
+Context:
+${context}`,
+    messages: await convertToModelMessages(messages),
   });
+
+  return result.toUIMessageStreamResponse();
 }
