@@ -25,6 +25,7 @@ export async function POST(req: Request) {
   const ollama = createOpenAI({
     baseURL: `${OLLAMA_URL}/v1`,
     apiKey: "ollama",
+    compatibility: "compatible",
   });
 
   const result = streamText({
