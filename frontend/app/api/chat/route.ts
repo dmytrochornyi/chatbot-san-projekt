@@ -25,11 +25,10 @@ export async function POST(req: Request) {
   const ollama = createOpenAI({
     baseURL: `${OLLAMA_URL}/v1`,
     apiKey: "ollama",
-    compatibility: "compatible",
   });
 
   const result = streamText({
-    model: ollama(OLLAMA_MODEL),
+    model: ollama.chat(OLLAMA_MODEL),
     system: `You are a helpful academic assistant for Społeczna Akademia Nauk (SAN) university.
 Answer the student's question using only the provided context from university documents.
 If the context does not contain enough information to answer, say so honestly.
