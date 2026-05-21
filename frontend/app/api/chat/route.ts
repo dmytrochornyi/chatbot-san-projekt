@@ -10,12 +10,10 @@ export async function POST(req: Request) {
 
   const lastMessage = messages[messages.length - 1];
   const question =
-    typeof lastMessage?.content === "string"
-      ? lastMessage.content
-      : (lastMessage?.content as Array<{ type: string; text?: string }>)
-          ?.filter((p) => p.type === "text")
-          .map((p) => p.text ?? "")
-          .join("") ?? "";
+    lastMessage?.parts
+      ?.filter((p) => p.type === "text")
+      .map((p) => (p as { type: "text"; text: string }).text)
+      .join("") ?? "";
 
   const retrieveRes = await fetch(`${BACKEND_URL}/api/retrieve`, {
     method: "POST",
