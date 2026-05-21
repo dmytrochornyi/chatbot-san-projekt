@@ -9,10 +9,12 @@ export async function POST(req: Request) {
       content:
         typeof m.content === "string"
           ? m.content
-          : (m.content as { type: string; text?: string }[])
-              .filter((p) => p.type === "text")
-              .map((p) => p.text)
-              .join(""),
+          : Array.isArray(m.content)
+            ? (m.content as { type: string; text?: string }[])
+                .filter((p) => p.type === "text")
+                .map((p) => p.text ?? "")
+                .join("")
+            : "",
     }),
   );
 
